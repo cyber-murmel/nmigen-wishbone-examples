@@ -8,7 +8,7 @@ class RAM(Elaboratable, Interface):
     def __init__(self, data_width, granularity, depth):
         if not granularity:
             granularity = data_width
-
+        self.depth = depth
         self.memories = [
             {
                 "memory": memory,
@@ -41,7 +41,7 @@ class RAM(Elaboratable, Interface):
                 memory["read_port"],
                 memory["write_port"],
             ]
-            dat_r_slice, dat_w_slice = (
+            dat_r_slice, dat_w_slice, = (
                 signal.word_select(i, self.granularity)
                 for signal in (self.dat_r, self.dat_w)
             )
@@ -50,7 +50,7 @@ class RAM(Elaboratable, Interface):
                 dat_r_slice.eq(memory["read_port"].data),
                 memory["write_port"].addr.eq(self.adr),
                 memory["write_port"].data.eq(dat_w_slice),
-                memory["write_port"].en.eq(we),
+                memory["write_port"].en.eq(self.stb & self.we & self.sel[i]),
             ]
         return m
 
@@ -68,6 +68,8 @@ class RAM(Elaboratable, Interface):
         ]
         # memory cells
         for memory in self.memories:
-            for cell in memory["memory"]:
-                ports += [cell]
+            ports += [memory["write_port"].en]
+        for i in range(self.depth):
+            for memory in self.memories:
+                ports += [memory["memory"][i]]
         return ports

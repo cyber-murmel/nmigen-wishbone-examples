@@ -53,13 +53,11 @@ def configure_logging(verbose, quiet):
 def main(args):
     width = args.width
     granularity = args.granularity if args.granularity else width
-    depth = 8
+    depth = 4
 
     dut = RAM(width, granularity, depth)
 
     def process():
-        gran = granularity
-
         def cycle(addr=0, data=0, sel=~0, we=0):
             yield dut.adr.eq(addr)
             yield dut.dat_w.eq(data)
@@ -79,16 +77,37 @@ def main(args):
             yield dut.stb.eq(0)
             return result
 
-        data = [random.randrange(1 << gran) for _ in range(depth)]
-        for a, d in enumerate(data):
-            yield from cycle(addr=a, data=d, we=1)
-            yield Tick()
+        expected = list()
 
-        for a, d in enumerate(data):
-            yield from cycle(addr=a, data=0, we=0)
-            yield Tick()
-            q = yield dut.dat_r
-            assert d == q
+        # write data with different granularities
+        gran = granularity
+        addr = 0
+        while gran <= width:
+            n_sel_bits = gran // granularity
+            for sel in range(width // gran):
+                data = random.randrange(1 << gran)
+                expected += [data]
+                data <<= gran * sel
+                sel_bits = ((1 << n_sel_bits) - 1) << (sel * n_sel_bits)
+                yield from cycle(addr=addr, data=data, sel=sel_bits, we=1)
+                yield Tick()
+            gran <<= 1
+            addr += 1
+
+        # read data and compare
+        gran = granularity
+        addr = 0
+        while gran <= width:
+            n_sel_bits = gran // granularity
+            for sel in range(width // gran):
+                sel_bits = ((1 << n_sel_bits) - 1) << (sel * n_sel_bits)
+                yield from cycle(addr=addr, data=data, sel=sel_bits, we=0)
+                yield Tick()
+                actual = yield dut.dat_r.word_select(sel, gran)
+                assert actual == expected[0]
+                expected = expected[1:]
+            gran <<= 1
+            addr += 1
 
     sim = Simulator(dut)
     with sim.write_vcd(args.vcd, args.gtkw, traces=dut.ports()):
