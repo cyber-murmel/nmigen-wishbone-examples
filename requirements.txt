@@ -1,0 +1,5 @@
+importlib-resources==3.3.0
+Jinja2==2.11.2
+MarkupSafe==1.1.1
+nmigen-soc==0.1.dev43+gecfad4d
+pyvcd==0.2.3
