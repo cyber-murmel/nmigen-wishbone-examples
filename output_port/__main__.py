@@ -7,7 +7,7 @@ from logging import debug, info, warning, error, basicConfig as logConfig
 from logging import DEBUG, INFO, WARNING, ERROR
 import random
 
-from .simple_output_port import SimpleOuputPort
+from .output_port import OuputPort
 
 def parse_arguments():
     parser = ArgumentParser(
@@ -18,10 +18,12 @@ def parse_arguments():
     verbose.add_argument("-q", "--quiet",   action="store_true", help="turn off warnings")
     verbose.add_argument("-v", "--verbose", action="count",      help="set verbose loglevel")
 
-    parser.add_argument("--vcd",   type=str, default="/tmp/traces.vcd",          help="path to vcd file")
-    parser.add_argument("--gtkw",  type=str, default="/tmp/traces.gtkw",         help="path to gtkw file")
-    parser.add_argument('--width', type=int, default=8, choices=[8, 16, 32, 64], help="bus data width")
-    parser.add_argument('--loop',  type=int, default=32,                         help="number of test loops to run")
+    parser.add_argument("--vcd",         type=str, default="/tmp/traces.vcd",         help="path to vcd file")
+    parser.add_argument("--gtkw",        type=str, default="/tmp/traces.gtkw",        help="path to gtkw file")
+    widths = (8, 16, 32, 64)
+    parser.add_argument('--width',       type=int, choices=widths, default=widths[0], help="bus data width")
+    parser.add_argument('--granularity', type=int, choices=widths,                    help="bus data granularity")
+    parser.add_argument('--loop',        type=int, default=32,                        help="number of test loops to run")
     
     args = parser.parse_args()
     return args
@@ -35,16 +37,18 @@ def configure_logging(verbose, quiet):
     debug("DEBUG Log Level")
 
 def main(args):
-    data_width = args.width
-    dut = SimpleOuputPort(data_width)
+    width = args.width
+    granularity = args.granularity if args.granularity else width
+
+    dut = OuputPort(width, granularity)
 
     def process():
-        # make reproducible
-        random.seed(42)
-        for i in range(args.loop):
-            data = random.randrange(1<<args.width)
+        gran = granularity
+
+        def cycle(data, sel):
             # start cycle
             yield dut.cyc.eq(1)
+            yield dut.sel.eq(sel)
             yield dut.dat_w.eq(data)
             yield dut.stb.eq(1)
             yield dut.we.eq(1)
@@ -55,14 +59,27 @@ def main(args):
                 ack = yield dut.ack
             # stop cycle
             yield dut.cyc.eq(0)
+            yield dut.sel.eq(0)
             yield dut.dat_w.eq(0)
             yield dut.stb.eq(0)
             yield dut.we.eq(0)
-            # wait for signal propagation through register
-            yield Tick()
-            # compare
-            dat_r = yield dut.dat_r
-            assert dat_r == data
+        
+        # make reproducible
+        random.seed(42)
+
+        while gran <= width:
+            n_sel_bits = gran//granularity
+            for _ in range(args.loop):
+                for sel in range(width//gran):
+                    expected = random.randrange(1<<gran)
+                    yield from cycle(expected<<(gran*sel), ((1<<n_sel_bits)-1)<<(sel*n_sel_bits))
+                    # wait for signal propagation through register
+                    yield Tick()
+                    # compare
+                    actual = yield dut.dat_r.word_select(sel, gran)
+                    assert actual == expected
+            
+            gran <<= 1
     
     sim = Simulator(dut)
     with sim.write_vcd(args.vcd, args.gtkw, traces=dut.ports()):
