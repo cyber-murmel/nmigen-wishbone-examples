@@ -27,7 +27,7 @@ This module is implemented in [simple_output_port.py](port/simple_output_port.py
 #### Usage
 If the python module is run, it instatiates a `SimpleOuputPort` with the given width (default 8) and performs as simple test loop. The waveforms are written do a file for inspection.
 
-```bash
+```
 $ python -m port -h
 usage: __main__.py [-h] [-q | -v] [--vcd VCD] [--gtkw GTKW] [--width {8,16,32,64}] [--loop LOOP]
 
@@ -41,13 +41,10 @@ optional arguments:
   --gtkw GTKW           path to gtkw file
   --width {8,16,32,64}  bus data width
   --loop LOOP           number of test loops to run
-  ```
-
-Run `python -m port -v`
-```
-2020-11-06 01:51:22 INFO     All tests passed!
-2020-11-06 01:51:22 INFO     Run `gtkwave /tmp/traces.gtkw` to inspect wave forms
+$ python -m port -v --width 32
+2020-11-06 02:08:21 INFO     All tests passed!
+2020-11-06 02:08:21 INFO     Run `gtkwave /tmp/traces.gtkw` to inspect wave forms
+$ gtkwave /tmp/traces.gtkw
 ```
 
-`gtkwave /tmp/traces.gtkw`
 ![](img/simple_output_port_gtkw.png)
