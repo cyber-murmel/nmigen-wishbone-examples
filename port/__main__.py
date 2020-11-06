@@ -18,10 +18,10 @@ def parse_arguments():
     verbose.add_argument("-q", "--quiet",   action="store_true", help="turn off warnings")
     verbose.add_argument("-v", "--verbose", action="count",      help="set verbose loglevel")
 
-    parser.add_argument("--vcd",   type=str,                default="/tmp/traces.vcd",  help="path to vcd file")
-    parser.add_argument("--gtkw",  type=str,                default="/tmp/traces.gtkw", help="path to gtkw file")
-    parser.add_argument('--width', choices=[8, 16, 32, 64], default=8,                  help="bus data width")
-    parser.add_argument('--loop',  type=int,                default=32,                 help="number of test loops to run")
+    parser.add_argument("--vcd",   type=str, default="/tmp/traces.vcd",          help="path to vcd file")
+    parser.add_argument("--gtkw",  type=str, default="/tmp/traces.gtkw",         help="path to gtkw file")
+    parser.add_argument('--width', type=int, default=8, choices=[8, 16, 32, 64], help="bus data width")
+    parser.add_argument('--loop',  type=int, default=32,                         help="number of test loops to run")
     
     args = parser.parse_args()
     return args
@@ -42,7 +42,7 @@ def main(args):
         # make reproducible
         random.seed(42)
         for i in range(args.loop):
-            data = random.randrange(1<<8)
+            data = random.randrange(1<<args.width)
             # start cycle
             yield dut.cyc.eq(1)
             yield dut.dat_w.eq(data)
